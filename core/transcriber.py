@@ -1,7 +1,53 @@
 import whisper
 import os
+import re
 import requests
 from pydub import AudioSegment
+
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+except ImportError:
+    YouTubeTranscriptApi = None
+
+def extract_youtube_id(url: str) -> str | None:
+    patterns = [
+        r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
+        r'(?:youtu\.be\/)([0-9A-Za-z_-]{11})',
+        r'(?:embed\/)([0-9A-Za-z_-]{11})',
+        r'(?:shorts\/)([0-9A-Za-z_-]{11})',
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m:
+            return m.group(1)
+    return None
+
+def fetch_youtube_transcript(url: str, language: str = "english") -> str | None:
+    """Fetch transcripts directly from YouTube API without downloading audio."""
+    if not YouTubeTranscriptApi:
+        return None
+    video_id = extract_youtube_id(url)
+    if not video_id:
+        return None
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        target_langs = ['hi', 'hi-Latn', 'en'] if language.lower() == "hinglish" else ['en', 'en-US', 'en-GB']
+        try:
+            transcript = transcript_list.find_transcript(target_langs)
+        except Exception:
+            try:
+                transcript = transcript_list.find_generated_transcript(target_langs)
+            except Exception:
+                transcript = next(iter(transcript_list))
+                if language.lower() == "english" and transcript.language_code not in ['en', 'en-US']:
+                    transcript = transcript.translate('en')
+
+        parts = transcript.fetch()
+        full_text = " ".join([p['text'] for p in parts if p.get('text')])
+        return full_text.strip() if full_text else None
+    except Exception as e:
+        print(f"Direct YouTube transcript fetch failed: {e}")
+        return None
 
 # Sarvam's sync STT-translate API rejects audio longer than 30s.
 # We slice each chunk into 25s pieces (with a 5s safety margin) before sending.
