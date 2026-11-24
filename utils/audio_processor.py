@@ -6,14 +6,37 @@ DOWNLOAD_DIR = 'downloades'
 os.makedirs(DOWNLOAD_DIR,exist_ok = True)
 
 def get_cookies_path() -> str | None:
-    """Check if cookies are provided in environment or local cookies.txt file."""
+    """Check if cookies are provided in Streamlit secrets, environment, or local cookies.txt."""
     if os.path.exists("cookies.txt") and os.path.getsize("cookies.txt") > 0:
         return "cookies.txt"
-    cookie_content = os.getenv("YOUTUBE_COOKIES")
+
+    cookie_content = None
+    try:
+        import streamlit as st
+        cookie_content = st.secrets.get("YOUTUBE_COOKIES")
+    except Exception:
+        pass
+
+    if not cookie_content:
+        cookie_content = os.getenv("YOUTUBE_COOKIES")
+
     if cookie_content:
         path = os.path.join(DOWNLOAD_DIR, "yt_cookies.txt")
+        lines = ["# Netscape HTTP Cookie File"]
+        for line in str(cookie_content).strip().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split()
+            if len(parts) >= 7:
+                # Format: domain, flag, path, secure, expiration, name, value (tab-delimited)
+                lines.append("\t".join(parts[:6] + [" ".join(parts[6:])]))
+            else:
+                lines.append(line)
+
         with open(path, "w", encoding="utf-8") as f:
-            f.write(cookie_content)
+            f.write("\n".join(lines) + "\n")
+        print(f"Loaded YouTube cookies into {path}")
         return path
     return None
 
