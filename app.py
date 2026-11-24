@@ -1,7 +1,7 @@
 import streamlit as st
 import time
+import os
 from dotenv import load_dotenv
-import time
 from utils.audio_processor import process_input
 from core.transcriber import transcribe_all
 from core.summarizer import summarize, generate_title
@@ -338,7 +338,8 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown('<span class="badge badge-purple">Input</span>', unsafe_allow_html=True)
-    source = st.text_input("YouTube URL or File Path", placeholder="https://youtube.com/watch?v=... or /path/to/file.mp4")
+    source = st.text_input("YouTube URL", placeholder="https://youtube.com/watch?v=...")
+    uploaded_file = st.file_uploader("Or upload audio/video file", type=["mp3", "wav", "m4a", "mp4"])
 
     language = st.selectbox("Language", ["english", "hinglish"], index=0)
 
@@ -364,8 +365,21 @@ st.markdown("---")
 
 # ── Run Pipeline ────────────────────────────────────────────────────────────────
 if run_btn:
-    if not source.strip():
-        st.error("Please enter a YouTube URL or file path.")
+    # Check if either URL or uploaded file is provided
+    input_target = None
+    if uploaded_file is not None:
+        import tempfile
+        temp_dir = "downloades"
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, f"uploaded_{uploaded_file.name}")
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        input_target = temp_path
+    elif source.strip():
+        input_target = source.strip()
+
+    if not input_target:
+        st.error("Please enter a YouTube URL or upload a file.")
     else:
         st.session_state.pipeline_done = False
         st.session_state.result = None
@@ -384,7 +398,7 @@ if run_btn:
 
             # ── Step 1: Audio ──
             update_step("audio", "active")
-            chunks = process_input(source)
+            chunks = process_input(input_target)
             update_step("audio", "done")
 
             # ── Step 2: Transcription ──
