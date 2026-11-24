@@ -6,33 +6,60 @@ DOWNLOAD_DIR = 'downloades'
 os.makedirs(DOWNLOAD_DIR,exist_ok = True)
 
 def download_youtube_audio(url :str) ->str:
-    output_path = os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s")
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": output_path,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["android", "ios", "mweb"]
+    output_path = os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s")
+    
+    # Try different player clients if one fails with 403
+    client_configs = [
+        ["ios"],
+        ["tv"],
+        ["mweb"],
+        ["web_creator"],
+    ]
+    
+    last_err = None
+    for clients in client_configs:
+        try:
+            ydl_opts = {
+                "format": "ba/b",
+                "outtmpl": output_path,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": clients,
+                        "player_skip": ["webpage", "configs"],
+                    }
+                },
+                "http_headers": {
+                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "wav",
+                        "preferredquality": "192",
+                    }
+                ],
+                "quiet": True,
+                "no_warnings": True,
+                "nocheckcertificate": True,
             }
-        },
-        "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "wav",
-                "preferredquality": "192",
-            }
-        ],
-        "quiet": True,
-        "no_warnings": True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info).replace(".webm", ".wav").replace(".m4a", ".wav")
-    return filename
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+                # Ensure .wav extension after postprocessing
+                wav_file = os.path.splitext(filename)[0] + ".wav"
+                if os.path.exists(wav_file):
+                    return wav_file
+                return filename
+        except Exception as e:
+            last_err = e
+            continue
+
+    raise RuntimeError(
+        f"YouTube blocked the cloud server request ({last_err}). "
+        "YouTube enforces strict IP blocks on cloud hosting providers like AWS/Streamlit. "
+        "Please use the 'Upload audio/video file' option in the sidebar to analyze your file directly!"
+    )
 
 
 
