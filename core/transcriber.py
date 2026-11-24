@@ -3,6 +3,7 @@ import os
 import re
 import requests
 from pydub import AudioSegment
+from utils.audio_processor import get_cookies_path
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -29,18 +30,26 @@ def fetch_youtube_transcript(url: str, language: str = "english") -> str | None:
     video_id = extract_youtube_id(url)
     if not video_id:
         return None
+    
+    cookiefile = get_cookies_path()
     try:
-        # First attempt: direct fetch (works for 90% of videos)
+        # First attempt: direct fetch using authenticated cookies
         try:
-            parts = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'hi', 'hi-Latn'])
+            kwargs = {"languages": ['en', 'en-US', 'hi', 'hi-Latn']}
+            if cookiefile:
+                kwargs["cookies"] = cookiefile
+            parts = YouTubeTranscriptApi.get_transcript(video_id, **kwargs)
             full_text = " ".join([p['text'] for p in parts if p.get('text')])
             if full_text:
                 return full_text.strip()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Direct get_transcript attempt failed: {e}")
 
-        # Second attempt: inspect full transcript list
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Second attempt: inspect full transcript list with cookies
+        list_kwargs = {}
+        if cookiefile:
+            list_kwargs["cookies"] = cookiefile
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, **list_kwargs)
         target_langs = ['hi', 'hi-Latn', 'en'] if language.lower() == "hinglish" else ['en', 'en-US', 'en-GB']
         try:
             transcript = transcript_list.find_transcript(target_langs)
