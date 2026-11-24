@@ -44,47 +44,44 @@ def download_youtube_audio(url :str) ->str:
     output_path = os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s")
     cookiefile = get_cookies_path()
     
-    # Try different player clients if one fails with 403
-    client_configs = [
-        ["mweb"],
-        ["android"],
-        ["ios"],
-        ["tv"],
-    ]
-    
-    last_err = None
-    for clients in client_configs:
-        try:
-            ydl_opts = {
-                "format": "ba/b",
-                "outtmpl": output_path,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": clients,
-                        "player_skip": ["webpage", "configs"],
-                    }
-                },
-                "http_headers": {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                    "Accept-Language": "en-US,en;q=0.9",
-                },
-                "postprocessors": [
-                    {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "wav",
-                        "preferredquality": "192",
-                    }
-                ],
-                "quiet": True,
-                "no_warnings": True,
-                "nocheckcertificate": True,
+    base_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": output_path,
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "wav",
+                "preferredquality": "192",
             }
-            if cookiefile:
-                ydl_opts["cookiefile"] = cookiefile
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ],
+        "quiet": True,
+        "no_warnings": True,
+        "nocheckcertificate": True,
+        "geo_bypass": True,
+    }
+    if cookiefile:
+        base_opts["cookiefile"] = cookiefile
+
+    # First attempt: standard download (with cookies if available)
+    try:
+        with yt_dlp.YoutubeDL(base_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            wav_file = os.path.splitext(filename)[0] + ".wav"
+            if os.path.exists(wav_file):
+                return wav_file
+            return filename
+    except Exception as e:
+        last_err = e
+
+    # Fallback attempts: try client rotation
+    for client in ["ios", "android", "mweb"]:
+        try:
+            opts = dict(base_opts)
+            opts["extractor_args"] = {"youtube": {"player_client": [client]}}
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info)
-                # Ensure .wav extension after postprocessing
                 wav_file = os.path.splitext(filename)[0] + ".wav"
                 if os.path.exists(wav_file):
                     return wav_file
@@ -95,7 +92,6 @@ def download_youtube_audio(url :str) ->str:
 
     raise RuntimeError(
         f"YouTube blocked the cloud server request ({last_err}). "
-        "YouTube enforces strict IP blocks on cloud hosting providers like AWS/Streamlit. "
         "Please use the 'Upload audio/video file' option in the sidebar to analyze your file directly!"
     )
 
