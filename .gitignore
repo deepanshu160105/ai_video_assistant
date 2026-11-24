@@ -1,0 +1,26 @@
+# Environment and secrets
+.env
+*.env
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Application generated files
+downloades/
+vector_db/
+*.wav
+*.mp3
+*.mp4
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
