@@ -45,7 +45,8 @@ def download_youtube_audio(url :str) ->str:
     cookiefile = get_cookies_path()
     
     base_opts = {
-        "format": "bestaudio/best",
+        "format": "bestaudio/best/ba/b/best",
+        "format_sort": ["res:360", "ext:m4a:mp4"],
         "outtmpl": output_path,
         "postprocessors": [
             {
