@@ -30,6 +30,16 @@ def fetch_youtube_transcript(url: str, language: str = "english") -> str | None:
     if not video_id:
         return None
     try:
+        # First attempt: direct fetch (works for 90% of videos)
+        try:
+            parts = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'en-US', 'hi', 'hi-Latn'])
+            full_text = " ".join([p['text'] for p in parts if p.get('text')])
+            if full_text:
+                return full_text.strip()
+        except Exception:
+            pass
+
+        # Second attempt: inspect full transcript list
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         target_langs = ['hi', 'hi-Latn', 'en'] if language.lower() == "hinglish" else ['en', 'en-US', 'en-GB']
         try:
@@ -46,7 +56,7 @@ def fetch_youtube_transcript(url: str, language: str = "english") -> str | None:
         full_text = " ".join([p['text'] for p in parts if p.get('text')])
         return full_text.strip() if full_text else None
     except Exception as e:
-        print(f"Direct YouTube transcript fetch failed: {e}")
+        print(f"Direct YouTube transcript fetch failed for {video_id}: {e}")
         return None
 
 # Sarvam's sync STT-translate API rejects audio longer than 30s.

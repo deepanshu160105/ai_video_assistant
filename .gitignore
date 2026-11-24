@@ -1,6 +1,8 @@
 # Environment and secrets
 .env
 *.env
+cookies.txt
+yt_cookies.txt
 
 # Virtual Environment
 .venv/

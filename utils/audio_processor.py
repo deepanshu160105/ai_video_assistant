@@ -5,15 +5,28 @@ import os
 DOWNLOAD_DIR = 'downloades'
 os.makedirs(DOWNLOAD_DIR,exist_ok = True)
 
+def get_cookies_path() -> str | None:
+    """Check if cookies are provided in environment or local cookies.txt file."""
+    if os.path.exists("cookies.txt") and os.path.getsize("cookies.txt") > 0:
+        return "cookies.txt"
+    cookie_content = os.getenv("YOUTUBE_COOKIES")
+    if cookie_content:
+        path = os.path.join(DOWNLOAD_DIR, "yt_cookies.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(cookie_content)
+        return path
+    return None
+
 def download_youtube_audio(url :str) ->str:
     output_path = os.path.join(DOWNLOAD_DIR, "%(id)s.%(ext)s")
+    cookiefile = get_cookies_path()
     
     # Try different player clients if one fails with 403
     client_configs = [
+        ["mweb"],
+        ["android"],
         ["ios"],
         ["tv"],
-        ["mweb"],
-        ["web_creator"],
     ]
     
     last_err = None
@@ -29,7 +42,7 @@ def download_youtube_audio(url :str) ->str:
                     }
                 },
                 "http_headers": {
-                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                     "Accept-Language": "en-US,en;q=0.9",
                 },
                 "postprocessors": [
@@ -43,6 +56,8 @@ def download_youtube_audio(url :str) ->str:
                 "no_warnings": True,
                 "nocheckcertificate": True,
             }
+            if cookiefile:
+                ydl_opts["cookiefile"] = cookiefile
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info)
